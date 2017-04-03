@@ -66,7 +66,7 @@ define([
             time: t,
             name: eventName,
             index: selectedIndex,
-            indicies: selectedIndicies,
+            indices: selectedIndicies,
             model: mod
         });
 
