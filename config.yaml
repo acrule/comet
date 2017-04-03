@@ -1,0 +1,7 @@
+Type: IPython Notebook Extension
+Name: Comet
+Description: Track changes to the notebook over time
+Link: readme.md
+Icon: icon.png
+Main: main.js
+Compatibility: 4.x
