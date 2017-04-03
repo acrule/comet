@@ -59,14 +59,14 @@ define([
 
     // TODO implement tracking when multiple cells are selected
     // in save function on the notebook
-    function send_data(t, eventName, selectedIndex, selectedIndicies, mod, url){
+    function send_data(t, eventName, selectedIndex, selectedIndices, mod, url){
         /* Send data about the action to the Comet server */
 
         var d = JSON.stringify({
             time: t,
             name: eventName,
             index: selectedIndex,
-            indices: selectedIndicies,
+            indices: selectedIndices,
             model: mod
         });
 
@@ -96,7 +96,7 @@ define([
                 // get time, event name, and selected cell(s) before execution
                 var t = Date.now();
                 var selectedIndex = this.env.notebook.get_selected_index();
-                var selectedIndicies = this.env.notebook.get_selected_cells_indices();
+                var selectedIndices = this.env.notebook.get_selected_cells_indices();
 
                 // let the notebook apply the action
                 old_call.apply(this, arguments);
