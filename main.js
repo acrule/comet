@@ -55,17 +55,18 @@ define([
         //'clear-cell-output',
         //'restart-kernel-and-clear-output',
         //'confirm-restart-kernel-and-clear-output',
-    ]
+    ];
 
     // TODO implement tracking when multiple cells are selected
     // in save function on the notebook
-    function send_data(t, eventName, selectedIndex, mod, url){
+    function send_data(t, eventName, selectedIndex, selectedIndicies, mod, url){
         /* Send data about the action to the Comet server */
 
         var d = JSON.stringify({
             time: t,
             name: eventName,
             index: selectedIndex,
+            indicies: selectedIndicies,
             model: mod
         });
 
@@ -89,14 +90,15 @@ define([
         // whether we do the action or the tracking first depends on the action
         ActionHandler.__proto__.call = function (){
 
-            var actionName = arguments[0].split(":")[1];
+            var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
 
             if(actions_to_intercept.indexOf(actionName)>-1){
-                // get time, event name, and selected cell before execution
-                var t = Date.now()
-                var selectedIndex = this.env.notebook.get_selected_index() // get_selected_cells_indices()
+                // get time, event name, and selected cell(s) before execution
+                var t = Date.now();
+                var selectedIndex = this.env.notebook.get_selected_index();
+                var selectedIndicies = this.env.notebook.get_selected_cells_indices();
 
-                // apply the action like we normally would
+                // let the notebook apply the action
                 old_call.apply(this, arguments);
 
                 // now get the modified notebook and its url
@@ -106,7 +108,7 @@ define([
                 var url = utils.url_path_join(baseUrl, 'api/comet', notebookUrl);
 
                 // and send the data to the server extension for processing
-                send_data(t, actionName, selectedIndex, mod, url)
+                send_data(t, actionName, selectedIndex, selectedIndices, mod, url);
             }
             else{
                 old_call.apply(this, arguments);
@@ -119,7 +121,7 @@ define([
     }
 
     return {
-        load_jupyter_extension : load_extension,
+        load_jupyter_extension: load_extension,
         load_ipython_extension: load_extension
     };
 });
