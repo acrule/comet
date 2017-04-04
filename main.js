@@ -1,6 +1,4 @@
 /*
-Adam Rule
-March 29, 2017
 Comet:  NBextension paired with server extension to track notebook use
 */
 
@@ -15,7 +13,7 @@ define([
 
     var ActionHandler = Jupyter.actions;
 
-    // Lists of actions to track. For all available actions see
+    // Lists of actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
     var actions_to_intercept = [
         // execute cells
@@ -28,7 +26,7 @@ define([
         // delete cells
         'delete-cell',
         'undo-cell-deletion',
-        // split cells
+        // split and merge cells
         'split-cell-at-cursor',
         'merge-cell-with-previous-cell',
         'merge-cell-with-next-cell',
@@ -38,7 +36,6 @@ define([
         'cut-cell',
         'paste-cell-above',
         'paste-cell-below',
-        //'copy-cell',
         // insert cells
         'insert-cell-above',
         'insert-cell-below',
@@ -57,14 +54,12 @@ define([
         //'confirm-restart-kernel-and-clear-output',
     ];
 
-    // TODO implement tracking when multiple cells are selected
-    // in save function on the notebook
-    function send_data(t, eventName, selectedIndex, selectedIndices, mod, url){
-        /* Send data about the action to the Comet server */
+    function sendData(t, actionName, selectedIndex, selectedIndices, mod, url){
+        /* Send data about the action to the Comet server extension*/
 
         var d = JSON.stringify({
             time: t,
-            name: eventName,
+            name: actionName,
             index: selectedIndex,
             indices: selectedIndices,
             model: mod
@@ -82,18 +77,17 @@ define([
     }
 
     function patch_actionHandler_call(){
-        /* Inject code into the actionhandler to track certain events */
+        /* Inject code into the actionhandler to track desired actions */
 
         console.log('[Comet] patching ActionHandler.prototype.call');
         var old_call = ActionHandler.__proto__.call;
-
-        // whether we do the action or the tracking first depends on the action
+        
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
 
             if(actions_to_intercept.indexOf(actionName)>-1){
-                // get time, event name, and selected cell(s) before execution
+                // get time, action name, and selected cell(s) before execution
                 var t = Date.now();
                 var selectedIndex = this.env.notebook.get_selected_index();
                 var selectedIndices = this.env.notebook.get_selected_cells_indices();
@@ -108,7 +102,7 @@ define([
                 var url = utils.url_path_join(baseUrl, 'api/comet', notebookUrl);
 
                 // and send the data to the server extension for processing
-                send_data(t, actionName, selectedIndex, selectedIndices, mod, url);
+                sendData(t, actionName, selectedIndex, selectedIndices, mod, url);
             }
             else{
                 old_call.apply(this, arguments);
