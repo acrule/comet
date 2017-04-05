@@ -4,17 +4,29 @@ Comet:  NBextension paired with server extension to track notebook use
 
 define([
     'base/js/namespace',
-    'base/js/utils'
-
+    'base/js/utils',
+    'base/js/events'
 ],function(
     Jupyter,
-    utils
+    utils,
+    events
 ){
 
+    //TODO Find out how to remove this error message
+    // "accessing "actions" on the global IPython/Jupyter is not recommended. Pass it to your objects contructors at creation time"
     var ActionHandler = Jupyter.actions;
 
     // Lists of actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
+
+    var run_actions = [
+        'run-cell',
+        'run-cell-and-select-next',
+        'run-cell-and-insert-below',
+        'run-all-cells',
+        'run-all-cells-above',
+        'run-all-cells-below'
+    ]
     var actions_to_intercept = [
         // execute cells
         'run-cell',
@@ -73,7 +85,10 @@ define([
             contentType: 'application/json',
         };
 
-        utils.promising_ajax(url, settings);
+        // TODO fix printing of 200 "error" https://github.com/jupyter/notebook/blob/a33d136cb03827edbad4a538979b3cced86057d2/notebook/static/base/js/utils.js#L815
+        var res = utils.promising_ajax(url, settings).catch(function(err) {
+            var x = 1;
+        });
     }
 
     function patch_actionHandler_call(){
@@ -81,34 +96,60 @@ define([
 
         console.log('[Comet] patching ActionHandler.prototype.call');
         var old_call = ActionHandler.__proto__.call;
-        
+
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
 
             if(actions_to_intercept.indexOf(actionName)>-1){
-                // get time, action name, and selected cell(s) before execution
+                // get time, action name, and selected cell(s) before action applied
                 var t = Date.now();
                 var selectedIndex = this.env.notebook.get_selected_index();
                 var selectedIndices = this.env.notebook.get_selected_cells_indices();
+                var that = this
 
-                // let the notebook apply the action
-                old_call.apply(this, arguments);
+                function record_output(evt, data){
+                    console.log("Calling the code cell execute")
 
-                // now get the modified notebook and its url
-                var mod = this.env.notebook.toJSON();
-                var notebookUrl =  this.env.notebook.notebook_path;
-                var baseUrl = this.env.notebook.base_url;
-                var url = utils.url_path_join(baseUrl, 'api/comet', notebookUrl);
+                    var mod = that.env.notebook.toJSON();
+                    var notebookUrl =  that.env.notebook.notebook_path;
+                    var baseUrl = that.env.notebook.base_url;
+                    var url = utils.url_path_join(baseUrl, 'api/comet', notebookUrl);
 
-                // and send the data to the server extension for processing
-                sendData(t, actionName, selectedIndex, selectedIndices, mod, url);
+                    // and send the data to the server extension for processing
+                    sendData(t, actionName, selectedIndex, selectedIndices, mod, url);
+
+                    events.off('finished_execute.CodeCell', record_output)
+                }
+
+                // need to wait for Code cells to execute before we can see the output
+                if(run_actions.indexOf(actionName)>-1){
+                    events.on('finished_execute.CodeCell', record_output);
+                    old_call.apply(this, arguments);
+                }
+                else{
+                    // let the notebook apply the action, and record the data
+                    old_call.apply(this, arguments);
+
+                    var mod = this.env.notebook.toJSON();
+                    var notebookUrl =  this.env.notebook.notebook_path;
+                    var baseUrl = this.env.notebook.base_url;
+                    var url = utils.url_path_join(baseUrl, 'api/comet', notebookUrl);
+
+                    // and send the data to the server extension for processing
+                    sendData(t, actionName, selectedIndex, selectedIndices, mod, url);
+                }
             }
             else{
                 old_call.apply(this, arguments);
             }
         }
     };
+
+    function record_output(t, actionName, selectedIndex, selectedIndices, nb){
+        // now get the modified notebook and its url
+
+    }
 
     function load_extension(){
         patch_actionHandler_call();
