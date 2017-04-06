@@ -87,6 +87,7 @@ define([
         var response = utils.promising_ajax(url, settings);
     }
 
+    // TODO figure out how to make compatable with 4.0.0 notebook
     function patch_actionHandler_call(){
         /* Inject code into the actionhandler to track desired actions */
 
@@ -116,10 +117,10 @@ define([
                     events.off('finished_execute.CodeCell', record_output)
                 }
 
-                //TODO check if the cell is a code cell
                 // need to wait for Code cells to execute before we can see the output
+                // v. 5.0.0 added the finished_execute.CodeCell event that we may want to listen for instead
                 if(run_actions.indexOf(actionName)>-1 && this.env.notebook.get_cell(selectedIndex).cell_type == "code"){
-                    events.on('finished_execute.CodeCell', record_output);
+                    events.on('kernel_idle.Kernel', record_output);                    
                     old_call.apply(this, arguments);
                 }
                 else{
