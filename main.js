@@ -12,13 +12,12 @@ define([
     events
 ){
 
-    //TODO Find out how to remove this error message
+    // TODO Find out how to remove this error message
     // "accessing "actions" on the global IPython/Jupyter is not recommended. Pass it to your objects contructors at creation time"
     var ActionHandler = Jupyter.actions;
 
     // Lists of actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
-
     var run_actions = [
         'run-cell',
         'run-cell-and-select-next',
@@ -85,10 +84,7 @@ define([
             contentType: 'application/json',
         };
 
-        // TODO fix printing of 200 "error" https://github.com/jupyter/notebook/blob/a33d136cb03827edbad4a538979b3cced86057d2/notebook/static/base/js/utils.js#L815
-        var res = utils.promising_ajax(url, settings).catch(function(err) {
-            var x = 1;
-        });
+        var response = utils.promising_ajax(url, settings);
     }
 
     function patch_actionHandler_call(){
@@ -109,8 +105,6 @@ define([
                 var that = this
 
                 function record_output(evt, data){
-                    console.log("Calling the code cell execute")
-
                     var mod = that.env.notebook.toJSON();
                     var notebookUrl =  that.env.notebook.notebook_path;
                     var baseUrl = that.env.notebook.base_url;
@@ -122,8 +116,9 @@ define([
                     events.off('finished_execute.CodeCell', record_output)
                 }
 
+                //TODO check if the cell is a code cell
                 // need to wait for Code cells to execute before we can see the output
-                if(run_actions.indexOf(actionName)>-1){
+                if(run_actions.indexOf(actionName)>-1 && this.env.notebook.get_cell(selectedIndex).cell_type == "code"){
                     events.on('finished_execute.CodeCell', record_output);
                     old_call.apply(this, arguments);
                 }
