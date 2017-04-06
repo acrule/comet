@@ -1,7 +1,6 @@
-Type: IPython Notebook Extension
+Type: Jupyter Notebook Extension
 Name: Comet
-Description: Track changes to the notebook over time
+Description: Track changes to the notebook over time in coordination with server extension
 Link: readme.md
-Icon: icon.png
 Main: main.js
-Compatibility: 4.x
+Compatibility: 5.x
