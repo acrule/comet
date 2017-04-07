@@ -35,9 +35,9 @@ define([
                 )
             );
 
-        var orbit = $("#orbit_header")
+        var orbit_header = $("#orbit_header")
 
-        orbit.append($('<ul>')
+        orbit_header.append($('<ul>')
             .addClass('dropdown-menu')
             .attr('id', 'orbit-menu')
             .append($('<li>')

@@ -14,7 +14,7 @@ Comet tracks this information in three ways:
 ## Installation
 Comet is a research tool designed to help scientists in human-computer interaction better understand how Jupyter Notebooks  evolve over time. It is primarily a recording tool with very limited support for visualizing or reviewing the recorded data.
 
-Comet expects all data to be saved to an external drive (e.g. a USB key) and will not run unless it detects a mounted drive with a config file named "traces.cfg".
+Comet expects all data to be saved to an external drive (e.g. a USB key) and will not run unless it detects a mounted drive with a config file named `traces.cfg`.
 
 The Comet notebook extension may be installed by downloading this repo, opening a terminal, navigating to the folder containing the downloaded extension, and then installing and enabling the extension using the following commands:
 
