@@ -3,10 +3,12 @@ Comet:  NBextension paired with server extension to track notebook use
 */
 
 define([
+    'jquery',
     'base/js/namespace',
     'base/js/utils',
     'base/js/events'
 ],function(
+    $,
     Jupyter,
     utils,
     events
@@ -18,6 +20,87 @@ define([
     window.onbeforeunload = function (event) {
         sendData(Jupyter.notebook, Date.now(), "notebook-closed", 0, [0]);
     }
+
+    function append_orbit_menu(){
+        var menu = $("#help_menu").parent().parent();
+
+        menu.append($('<li> ')
+            .addClass("dropdown")
+            .attr('id','orbit_header')
+            .append($('<a>')
+                .addClass('dropdown-toggle')
+                .attr('href','#')
+                .attr('data-toggle','dropdown')
+                .text('Orbit')
+                )
+            );
+
+        var orbit = $("#orbit_header")
+
+        orbit.append($('<ul>')
+            .addClass('dropdown-menu')
+            .attr('id', 'orbit-menu')
+            .append($('<li>')
+                .attr('id', 'orbit_settings')
+                .append($('<a>')
+                    .attr('href','#')
+                    .text('Orbit Settings')
+                )
+            )
+        );
+    }
+
+    append_orbit_menu();
+
+    // get the help_menu item on the page
+    // get the parent of that item
+
+
+
+    // MenuBar.prototype.add_kernel_help_links = function(help_links) {
+    //     /** add links from kernel_info to the help menu */
+    //     var divider = $("#kernel-help-links");
+    //     if (divider.length === 0) {
+    //         // insert kernel help section above about link
+    //         var about = $("#notebook_about").parent();
+    //         divider = $("<li>")
+    //             .attr('id', "kernel-help-links")
+    //             .addClass('divider');
+    //         about.prev().before(divider);
+    //     }
+    //     // remove previous entries
+    //     while (!divider.next().hasClass('divider')) {
+    //         divider.next().remove();
+    //     }
+    //     if (help_links.length === 0) {
+    //         // no help links, remove the divider
+    //         divider.remove();
+    //         return;
+    //     }
+    //     var cursor = divider;
+    //     help_links.map(function (link) {
+    //         cursor.after($("<li>")
+    //             .append($("<a>")
+    //                 .attr('target', '_blank')
+    //                 .attr('title', 'Opens in a new window')
+    //                 .attr('href', requirejs.toUrl(link.url))
+    //                 .append($("<i>")
+    //                     .addClass("fa fa-external-link menu-icon pull-right")
+    //                 )
+    //                 .append($("<span>")
+    //                     .text(link.text)
+    //                 )
+    //             )
+    //         );
+    //         cursor = cursor.next();
+    //     });
+    //
+    // };
+
+
+
+
+
 
     // Throws console warning:
     // "accessing "actions" on the global IPython/Jupyter is not recommended.
