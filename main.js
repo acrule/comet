@@ -12,6 +12,13 @@ define([
     events
 ){
 
+    // track when the notebook opens and closes
+    sendData(Jupyter.notebook, Date.now(), "notebook-opened", 0, [0]);
+
+    window.onbeforeunload = function (event) {
+        sendData(Jupyter.notebook, Date.now(), "notebook-closed", 0, [0]);
+    }
+
     // Throws console warning:
     // "accessing "actions" on the global IPython/Jupyter is not recommended.
     // Pass it to your objects contructors at creation time"
