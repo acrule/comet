@@ -57,11 +57,6 @@ define([
 
     ];
 
-    events.on('file_renamed.Editor', function(evt){
-        console.log("The filename changed")
-        console.log(evt)
-    });
-
     function monitorNotebookOpenClose(){
         // track notebook open event
         trackAction(Jupyter.notebook, Date.now(), "notebook-opened", 0, [0]);
