@@ -14,100 +14,8 @@ define([
     events
 ){
 
-    // track when the notebook opens and closes
-    sendData(Jupyter.notebook, Date.now(), "notebook-opened", 0, [0]);
-
-    window.onbeforeunload = function (event) {
-        sendData(Jupyter.notebook, Date.now(), "notebook-closed", 0, [0]);
-    }
-
-    function append_orbit_menu(){
-        var menu = $("#help_menu").parent().parent();
-
-        menu.append($('<li> ')
-            .addClass("dropdown")
-            .attr('id','orbit_header')
-            .append($('<a>')
-                .addClass('dropdown-toggle')
-                .attr('href','#')
-                .attr('data-toggle','dropdown')
-                .text('Orbit')
-                )
-            );
-
-        var orbit_header = $("#orbit_header")
-
-        orbit_header.append($('<ul>')
-            .addClass('dropdown-menu')
-            .attr('id', 'orbit-menu')
-            .append($('<li>')
-                .attr('id', 'orbit_settings')
-                .append($('<a>')
-                    .attr('href','#')
-                    .text('Orbit Settings')
-                )
-            )
-        );
-    }
-
-    append_orbit_menu();
-
-    // get the help_menu item on the page
-    // get the parent of that item
-
-
-
-    // MenuBar.prototype.add_kernel_help_links = function(help_links) {
-    //     /** add links from kernel_info to the help menu */
-    //     var divider = $("#kernel-help-links");
-    //     if (divider.length === 0) {
-    //         // insert kernel help section above about link
-    //         var about = $("#notebook_about").parent();
-    //         divider = $("<li>")
-    //             .attr('id', "kernel-help-links")
-    //             .addClass('divider');
-    //         about.prev().before(divider);
-    //     }
-    //     // remove previous entries
-    //     while (!divider.next().hasClass('divider')) {
-    //         divider.next().remove();
-    //     }
-    //     if (help_links.length === 0) {
-    //         // no help links, remove the divider
-    //         divider.remove();
-    //         return;
-    //     }
-    //     var cursor = divider;
-    //     help_links.map(function (link) {
-    //         cursor.after($("<li>")
-    //             .append($("<a>")
-    //                 .attr('target', '_blank')
-    //                 .attr('title', 'Opens in a new window')
-    //                 .attr('href', requirejs.toUrl(link.url))
-    //                 .append($("<i>")
-    //                     .addClass("fa fa-external-link menu-icon pull-right")
-    //                 )
-    //                 .append($("<span>")
-    //                     .text(link.text)
-    //                 )
-    //             )
-    //         );
-    //         cursor = cursor.next();
-    //     });
-    //
-    // };
-
-
-
-
-
-
-    // Throws console warning:
-    // "accessing "actions" on the global IPython/Jupyter is not recommended.
-    // Pass it to your objects contructors at creation time"
     var ActionHandler = Jupyter.actions;
-
-    // List of actions to track. For all available actions see:
+    // List of notebook actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
     var actions_to_intercept = [
         // execute cells
@@ -149,7 +57,51 @@ define([
 
     ];
 
-    function sendData(nb, t, actionName, selectedIndex, selectedIndices){
+    events.on('file_renamed.Editor', function(evt){
+        console.log("The filename changed")
+        console.log(evt)
+    });
+
+    function monitorNotebookOpenClose(){
+        // track notebook open event
+        trackAction(Jupyter.notebook, Date.now(), "notebook-opened", 0, [0]);
+
+        // listen for notebook close (i.e., browser tab closes)
+        window.onbeforeunload = function (event) {
+            trackAction(Jupyter.notebook, Date.now(), "notebook-closed", 0, [0]);
+        }
+    }
+
+    function renderCometMenu(){
+        /* place menu in toolbar for managing Comet settings */
+
+        var menu = $("#help_menu").parent().parent();
+        menu.append($('<li> ')
+            .addClass("dropdown")
+            .attr('id','comet_header')
+            .append($('<a>')
+                .addClass('dropdown-toggle')
+                .attr('href','#')
+                .attr('data-toggle','dropdown')
+                .text('Comet')
+                )
+            );
+
+        var comet_header = $("#comet_header")
+        comet_header.append($('<ul>')
+            .addClass('dropdown-menu')
+            .attr('id', 'comet-menu')
+            .append($('<li>')
+                .attr('id', 'comet_settings')
+                .append($('<a>')
+                    .attr('href','#')
+                    .text('Comet Settings')
+                )
+            )
+        );
+    }
+
+    function trackAction(nb, t, actionName, selectedIndex, selectedIndices){
         /* Send data about the action to the Comet server extension */
 
         var mod = nb.toJSON();
@@ -188,28 +140,29 @@ define([
 
             if(actions_to_intercept.indexOf(actionName)>-1){
 
-                // get time, action name, and selected cell(s) before action applied
+                // get time, action name, and selected cell(s) before applying action
                 var nb = this.env.notebook
                 var t = Date.now();
                 var selectedIndex = nb.get_selected_index();
                 var selectedIndices = nb.get_selected_cells_indices();
 
-                // if executing a Code cell, wait for it to execute before scraping the notebook
-                // notebook v. 5.0.0 added the finished_execute.CodeCell event
+                // if executing a Code cell, wait for the execution to finish
+                // before tracking the action since we want to see the changes
+                // notebook v. 5.0.0 added the `finished_execute.CodeCell` event
                 // that we may want to listen for instead of the kernel idleing
-                function sendDataAfterExecution(evt){
-                    sendData(nb, t, actionName, selectedIndex, selectedIndices);
-                    events.off('kernel_idle.Kernel', sendDataAfterExecution)
+                function trackActionAfterExecution(evt){
+                    trackAction(nb, t, actionName, selectedIndex, selectedIndices);
+                    events.off('kernel_idle.Kernel', trackActionAfterExecution)
                 }
 
                 if(actionName.substring(0,3) == "run" && nb.get_cell(selectedIndex).cell_type == "code"){
-                    events.on('kernel_idle.Kernel', sendDataAfterExecution);
+                    events.on('kernel_idle.Kernel', trackActionAfterExecution);
                     old_call.apply(this, arguments);
                 }
-                // otherwise just scrape the notebook right away
+                // if not executing a code cell just track the action immediately
                 else{
                     old_call.apply(this, arguments);
-                    sendData(nb, t, actionName, selectedIndex, selectedIndices);
+                    trackAction(nb, t, actionName, selectedIndex, selectedIndices);
 
                 }
             }
@@ -220,7 +173,9 @@ define([
     };
 
     function load_extension(){
+        monitorNotebookOpenClose();
         patchActionHandlerCall();
+        renderCometMenu();
     }
 
     return {
