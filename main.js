@@ -127,13 +127,14 @@ define([
         /* Inject code into the actionhandler to track desired actions */
 
         console.log('[Comet] patching ActionHandler.prototype.call');
-        var old_call = ActionHandler.__proto__.call;
+        var oldCall = ActionHandler.__proto__.call;
 
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
 
-            if(actions_to_intercept.indexOf(actionName)>-1){
+            var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
+            if(trackThisAction){
 
                 // get time, action name, and selected cell(s) before applying action
                 var nb = this.env.notebook
@@ -152,17 +153,17 @@ define([
 
                 if(actionName.substring(0,3) == "run" && nb.get_cell(selectedIndex).cell_type == "code"){
                     events.on('kernel_idle.Kernel', trackActionAfterExecution);
-                    old_call.apply(this, arguments);
+                    oldCall.apply(this, arguments);
                 }
                 // if not executing a code cell just track the action immediately
                 else{
-                    old_call.apply(this, arguments);
+                    oldCall.apply(this, arguments);
                     trackAction(nb, t, actionName, selectedIndex, selectedIndices);
 
                 }
             }
             else{
-                old_call.apply(this, arguments);
+                oldCall.apply(this, arguments);
             }
         }
     };
@@ -170,7 +171,8 @@ define([
     function load_extension(){
         monitorNotebookOpenClose();
         patchActionHandlerCall();
-        renderCometMenu();
+        // placeholder code for adding a settings menu to the toolbar
+        // renderCometMenu();
     }
 
     return {
