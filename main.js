@@ -17,6 +17,10 @@ define([
     var ActionHandler = Jupyter.actions;
     // List of notebook actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
+
+    // TODO figure out how to track copy, cut, paste cells as these events
+    // don't seem to always trigger
+
     var actions_to_intercept = [
         // execute cells
         'run-cell',
@@ -25,6 +29,7 @@ define([
         'run-all-cells',
         'run-all-cells-above',
         'run-all-cells-below',
+        'restart-kernel-and-run-all-cells',
         // delete cells
         'delete-cell',
         'undo-cell-deletion',
@@ -132,6 +137,7 @@ define([
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
+            console.log(arguments)
 
             var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
             if(trackThisAction){
