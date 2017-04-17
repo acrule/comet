@@ -23,10 +23,6 @@ define([
 
     // List of notebook actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
-
-    // TODO figure out how to track copy, cut, paste cells as these events
-    // don't seem to always trigger
-
     var actions_to_intercept = [
         // execute cells
         'run-cell',
