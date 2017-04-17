@@ -6,12 +6,14 @@ define([
     'jquery',
     'base/js/namespace',
     'base/js/utils',
-    'base/js/events'
+    'base/js/events',
+    'notebook/js/cell'
 ],function(
     $,
     Jupyter,
     utils,
-    events
+    events,
+    Cell
 ){
 
     var ActionHandler = Jupyter.actions;
@@ -240,10 +242,42 @@ define([
         }
     };
 
+    // function patchCellSelectUnselect(){
+    //     console.log('[Comet] patching cell select/unselect')
+    //
+    //     oldCellSelect = Cell.Cell.prototype.select;
+    //     oldCellUnselect = Cell.Cell.prototype.unselect;
+    //
+    //     Cell.Cell.prototype.select = function() {
+    //         if(!this.selected){
+    //             var t = Date.now();
+    //             var selectedIndex = this.notebook.get_selected_index();
+    //             var selectedIndices = this.notebook.get_selected_cells_indices();
+    //             trackAction(this.notebook, t, 'select-cell', selectedIndex, selectedIndices);
+    //         }
+    //         oldCellSelect.apply(this, arguments);
+    //     }
+    //
+    //     Cell.Cell.prototype.unselect = function() {
+    //         if(this.selected){
+    //             var t = Date.now();
+    //             var selectedIndex = this.notebook.get_selected_index();
+    //             var selectedIndices = this.notebook.get_selected_cells_indices();
+    //             trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
+    //         }
+    //         oldCellUnselect.apply(this);
+    //     }
+    // }
+
     function load_extension(){
         monitorNotebookOpenClose();
         patchActionHandlerCall();
         patchCutCopyPaste();
+
+        // placeholder code for tracking cell select and unselect events
+        // so we can track changes to cells that are edited, but not executed
+        // right now, select and unselect get triggered more often than expected
+        // patchCellSelectUnselect();
         // placeholder code for adding a settings menu to the toolbar
         // renderCometMenu();
     }
