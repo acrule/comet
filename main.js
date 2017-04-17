@@ -275,42 +275,28 @@ define([
         }
     };
 
-    // function patchCellSelectUnselect(){
-    //     console.log('[Comet] patching cell select/unselect')
-    //
-    //     oldCellSelect = Cell.Cell.prototype.select;
-    //     oldCellUnselect = Cell.Cell.prototype.unselect;
-    //
-    //     Cell.Cell.prototype.select = function() {
-    //         if(!this.selected){
-    //             var t = Date.now();
-    //             var selectedIndex = this.notebook.get_selected_index();
-    //             var selectedIndices = this.notebook.get_selected_cells_indices();
-    //             trackAction(this.notebook, t, 'select-cell', selectedIndex, selectedIndices);
-    //         }
-    //         oldCellSelect.apply(this, arguments);
-    //     }
-    //
-    //     Cell.Cell.prototype.unselect = function() {
-    //         if(this.selected){
-    //             var t = Date.now();
-    //             var selectedIndex = this.notebook.get_selected_index();
-    //             var selectedIndices = this.notebook.get_selected_cells_indices();
-    //             trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
-    //         }
-    //         oldCellUnselect.apply(this);
-    //     }
-    // }
+    function patchCellUnselect(){
+        console.log('[Comet] patching cell select/unselect')
+
+        oldCellUnselect = Cell.Cell.prototype.unselect;
+
+        Cell.Cell.prototype.unselect = function() {
+            if(this.selected){
+                var t = Date.now();
+                var selectedIndex = this.notebook.get_selected_index();
+                var selectedIndices = this.notebook.get_selected_cells_indices();
+                trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
+            }
+            oldCellUnselect.apply(this);
+        }
+    }
 
     function load_extension(){
         monitorNotebookOpenClose();
         patchActionHandlerCall();
         patchCutCopyPaste();
+        patchCellUnselect();
 
-        // placeholder code for tracking cell select and unselect events
-        // so we can track changes to cells that are edited, but not executed
-        // right now, select and unselect get triggered more often than expected
-        // patchCellSelectUnselect();
         // placeholder code for adding a settings menu to the toolbar
         // renderCometMenu();
     }
