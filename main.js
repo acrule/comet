@@ -7,13 +7,15 @@ define([
     'base/js/namespace',
     'base/js/utils',
     'base/js/events',
-    'notebook/js/cell'
+    'notebook/js/cell',
+    'notebook/js/clipboard'
 ],function(
     $,
     Jupyter,
     utils,
     events,
-    Cell
+    Cell,
+    clipboard
 ){
 
     var ActionHandler = Jupyter.actions;
@@ -146,6 +148,9 @@ define([
         var oldCut = Notebook.__proto__.cut_cell;
         var oldCopy = Notebook.__proto__.copy_cell;
 
+        var oldClipboardCopy = clipboard.copy;
+        var oldClipboardPaste = clipboard.paste;
+
         Notebook.__proto__.paste_cell_replace = function(){
             var t = Date.now();
             var selectedIndex = this.get_selected_index();
@@ -195,6 +200,34 @@ define([
 
             trackAction(this, t, 'copy-cell', selectedIndex, selectedIndices);
         }
+
+        document.addEventListener('copy', function(){
+            if (Jupyter.notebook.mode == 'command') {
+                var t = Date.now();
+                var selectedIndex = Jupyter.notebook.get_selected_index();
+                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
+                trackAction(Jupyter.notebook, t, 'copy-cell', selectedIndex, selectedIndices);
+            }
+        });
+
+        document.addEventListener('cut', function(){
+            if (Jupyter.notebook.mode == 'command') {
+                var t = Date.now();
+                var selectedIndex = Jupyter.notebook.get_selected_index();
+                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
+                trackAction(Jupyter.notebook, t, 'cut-cell', selectedIndex, selectedIndices);
+            }
+        });
+
+        document.addEventListener('paste', function(){
+            if (Jupyter.notebook.mode == 'command') {
+                var t = Date.now();
+                var selectedIndex = Jupyter.notebook.get_selected_index();
+                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
+                trackAction(Jupyter.notebook, t, 'paste-cell-below', selectedIndex, selectedIndices);
+            }
+        });
+
     }
 
     function patchActionHandlerCall(){
