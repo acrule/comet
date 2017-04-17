@@ -15,6 +15,8 @@ define([
 ){
 
     var ActionHandler = Jupyter.actions;
+    var Notebook = Jupyter.notebook;
+
     // List of notebook actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
 
@@ -40,9 +42,12 @@ define([
         'merge-selected-cells',
         'merge-cells',
         // cut and paste
-        'cut-cell',
-        'paste-cell-above',
-        'paste-cell-below',
+        // not tracking cut, copy, paste due to inconsistent calling of action
+        // 'cut-cell',
+        // 'copy-cell',
+        // 'paste-cell-above',
+        // 'paste-cell-below',
+        // 'paste-cell-replace',
         // insert cells
         'insert-cell-above',
         'insert-cell-below',
@@ -128,6 +133,68 @@ define([
         var response = utils.promising_ajax(url, settings);
     }
 
+    function patchCutCopyPaste(){
+        console.log('[Comet] patching cell cut, copy, and paste')
+
+        var oldPasteReplace = Notebook.__proto__.paste_cell_replace;
+        var oldPasteAbove = Notebook.__proto__.paste_cell_above;
+        var oldPasteBelow = Notebook.__proto__.paste_cell_below;
+        // the cut function calls the copy function, so for now cut actions
+        // will be double tracked
+        var oldCut = Notebook.__proto__.cut_cell;
+        var oldCopy = Notebook.__proto__.copy_cell;
+
+        Notebook.__proto__.paste_cell_replace = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+
+            oldPasteReplace.apply(this, arguments);
+
+            trackAction(this, t, 'paste-cell-replace', selectedIndex, selectedIndices);
+        }
+
+        Notebook.__proto__.paste_cell_above = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+
+            oldPasteAbove.apply(this, arguments);
+
+            trackAction(this, t, 'paste-cell-above', selectedIndex, selectedIndices);
+        }
+
+        Notebook.__proto__.paste_cell_below = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+
+            oldPasteBelow.apply(this, arguments);
+
+            trackAction(this, t, 'paste-cell-below', selectedIndex, selectedIndices);
+        }
+
+        Notebook.__proto__.cut_cell = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+
+            oldCut.apply(this, arguments);
+
+            trackAction(this, t, 'cut-cell', selectedIndex, selectedIndices);
+        }
+
+        Notebook.__proto__.copy_cell = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+
+            oldCopy.apply(this, arguments);
+
+            trackAction(this, t, 'copy-cell', selectedIndex, selectedIndices);
+        }
+    }
+
     function patchActionHandlerCall(){
         /* Inject code into the actionhandler to track desired actions */
 
@@ -137,7 +204,6 @@ define([
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
-            console.log(arguments)
 
             var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
             if(trackThisAction){
@@ -177,6 +243,7 @@ define([
     function load_extension(){
         monitorNotebookOpenClose();
         patchActionHandlerCall();
+        patchCutCopyPaste();
         // placeholder code for adding a settings menu to the toolbar
         // renderCometMenu();
     }
