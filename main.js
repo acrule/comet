@@ -33,7 +33,7 @@ define([
         'run-all-cells',
         'run-all-cells-above',
         'run-all-cells-below',
-        'restart-kernel-and-run-all-cells',
+        'confirm-restart-kernel-and-run-all-cells',
         // delete cells
         'delete-cell',
         'undo-cell-deletion',
@@ -234,6 +234,10 @@ define([
         ActionHandler.__proto__.call = function (){
 
             var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
+            if(actionName == 'restart-kernel-and-run-all-cells'){
+                console.log("The client sees the restart kernal action")
+            }
+
             var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
             if(trackThisAction){
                 // get time, action name, and selected cell(s) before applying action
@@ -242,8 +246,9 @@ define([
                 var selectedIndex = nb.get_selected_index();
                 var selectedIndices = nb.get_selected_cells_indices();
 
-                // if executing a Code cell, wait for the execution to finish
-                // before tracking the action since we want to see the changes
+                // if executing a Code cell, or running all cells
+                // wait for the execution to finish before tracking the action
+                // since we want to see the changes
                 // notebook v. 5.0.0 added the `finished_execute.CodeCell` event
                 // that we may want to listen for instead of the kernel idleing
                 function trackActionAfterExecution(evt){
@@ -251,7 +256,9 @@ define([
                     events.off('kernel_idle.Kernel', trackActionAfterExecution)
                 }
 
-                if(actionName.substring(0,3) == "run" && nb.get_cell(selectedIndex).cell_type == "code"){
+                if((actionName.substring(0,3) == "run"
+                    && nb.get_cell(selectedIndex).cell_type == "code")
+                    || actionName == 'confirm-restart-kernel-and-run-all-cells' ){
                     events.on('kernel_idle.Kernel', trackActionAfterExecution);
                     oldCall.apply(this, arguments);
                 }
