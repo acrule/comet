@@ -18,12 +18,11 @@ define([
     clipboard
 ){
 
-    // Get references to the ActionHandler and Notebook object constructor
-    // functions so we can patch these object's functions
+    // Get references to object constructors so we can patch functions
     var ActionHandler = Jupyter.actions;
     var Notebook = Jupyter.notebook;
 
-    // List of notebook actions to track. For all available actions see:
+    // Notebook actions we will track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
     var actions_to_intercept = [
         // execute cells
@@ -58,28 +57,60 @@ define([
         'restart-kernel-and-clear-output',
         'toggle-cell-output-collapsed',
         'toggle-cell-output-scrolled',
-        'confirm-restart-kernel-and-clear-output'
-        // cut and paste
+        'confirm-restart-kernel-and-clear-output'        
         // not tracking cut, copy, paste due to inconsistent calling of actions
-        // for example, in v 5.0.0 the paste menu items do not call these actions
+        // in Notebok v 5.0.0 the paste menu items do not call these actions
+        // also copy-paste shortcuts (e.g., CMD-C) are handled by the browser
+        // cut and paste
         // 'cut-cell',
         // 'copy-cell',
         // 'paste-cell-above',
         // 'paste-cell-below',
         // 'paste-cell-replace',
-
     ];
 
+    function checkCometSettings(){
+        if (Notebook.metadata.comet_tracking === undefined){
+            Notebook.metadata.comet_tracking = true;
+        }
+    }
+    
+    function toggleCometSettings(){
+        Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;
+        setCometMessage()
+        if(Notebook.metadata.comet_tracking){
+            trackAction(Notebook, Date.now(), "comet-tracking-on", 0, [0]);
+        }
+        else{
+            trackAction(Notebook, Date.now(), "comet-tracking-off", 0, [0]);
+        }        
+    }
+    
+    function setCometMessage(){
+        message = ''
+        if(Notebook.metadata.comet_tracking){
+            message = "Comet Tracking on"
+            $("#help_menu")
+            $("#comet_settings").find('a').text('Stop Tracking')
+        }
+        else{
+            message = "Comet Tracking off"
+            $("#comet_settings").find('a').text('Start Tracking')
+        }
+        Jupyter.notification_area.widget('notebook').set_message(message, 2000)
+    }
+
+    // TODO fix close events not being tracked if server is already shut down
     function trackNotebookOpenClose(){
         /* track notebook open and close events */
-        trackAction(Jupyter.notebook, Date.now(), "notebook-opened", 0, [0]);
+        trackAction(Notebook, Date.now(), "notebook-opened", 0, [0]);
         window.onbeforeunload = function(event) {
-            trackAction(Jupyter.notebook, Date.now(), "notebook-closed", 0, [0]);
+            trackAction(Notebook, Date.now(), "notebook-closed", 0, [0]);
         }
     }
 
     function renderCometMenu(){
-        /* place menu in toolbar for managing Comet settings */
+        /* add menu after help menu for managing Comet recording */
 
         var menu = $("#help_menu").parent().parent();
         menu.append($('<li> ')
@@ -89,7 +120,7 @@ define([
                 .addClass('dropdown-toggle')
                 .attr('href','#')
                 .attr('data-toggle','dropdown')
-                .text('Comet')
+                .text('Comet')                
                 )
             );
 
@@ -102,6 +133,7 @@ define([
                 .append($('<a>')
                     .attr('href','#')
                     .text('Toggle Recording')
+                    .click(toggleCometSettings)
                 )
             )
         );
@@ -198,29 +230,29 @@ define([
         // listen for system cut, copy, paste events (e.g., those called with
         // keyboard shortcuts that are handled by the browser
         document.addEventListener('cut', function(){
-            if (Jupyter.notebook.mode == 'command') {
+            if (Notebook.mode == 'command') {
                 var t = Date.now();
-                var selectedIndex = Jupyter.notebook.get_selected_index();
-                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
-                trackAction(Jupyter.notebook, t, 'cut-cell', selectedIndex, selectedIndices);
+                var selectedIndex = Notebook.get_selected_index();
+                var selectedIndices = Notebook.get_selected_cells_indices();
+                trackAction(Notebook, t, 'cut-cell', selectedIndex, selectedIndices);
             }
         });
 
         document.addEventListener('copy', function(){
-            if (Jupyter.notebook.mode == 'command') {
+            if (Notebook.mode == 'command') {
                 var t = Date.now();
-                var selectedIndex = Jupyter.notebook.get_selected_index();
-                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
-                trackAction(Jupyter.notebook, t, 'copy-cell', selectedIndex, selectedIndices);
+                var selectedIndex = Notebook.get_selected_index();
+                var selectedIndices = Notebook.get_selected_cells_indices();
+                trackAction(Notebook, t, 'copy-cell', selectedIndex, selectedIndices);
             }
         });
 
         document.addEventListener('paste', function(){
-            if (Jupyter.notebook.mode == 'command') {
+            if (Notebook.mode == 'command') {
                 var t = Date.now();
-                var selectedIndex = Jupyter.notebook.get_selected_index();
-                var selectedIndices = Jupyter.notebook.get_selected_cells_indices();
-                trackAction(Jupyter.notebook, t, 'paste-cell-below', selectedIndex, selectedIndices);
+                var selectedIndex = Notebook.get_selected_index();
+                var selectedIndices = Notebook.get_selected_cells_indices();
+                trackAction(Notebook, t, 'paste-cell-below', selectedIndex, selectedIndices);
             }
         });
 
@@ -230,47 +262,53 @@ define([
         /* Inject code into the actionhandler to track desired actions */
 
         var oldCall = ActionHandler.__proto__.call;
+        
+        ActionHandler.__proto__.call = function (){            
 
-        ActionHandler.__proto__.call = function (){
-
-            var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
-            if(actionName == 'restart-kernel-and-run-all-cells'){
-                console.log("The client sees the restart kernal action")
-            }
-
-            var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
-            if(trackThisAction){
-                // get time, action name, and selected cell(s) before applying action
-                var nb = this.env.notebook
-                var t = Date.now();
-                var selectedIndex = nb.get_selected_index();
-                var selectedIndices = nb.get_selected_cells_indices();
-
-                // if executing a Code cell, or running all cells
-                // wait for the execution to finish before tracking the action
-                // since we want to see the changes
-                // notebook v. 5.0.0 added the `finished_execute.CodeCell` event
-                // that we may want to listen for instead of the kernel idleing
-                function trackActionAfterExecution(evt){
-                    trackAction(nb, t, actionName, selectedIndex, selectedIndices);
-                    events.off('kernel_idle.Kernel', trackActionAfterExecution)
-                }
-
-                if((actionName.substring(0,3) == "run"
-                    && nb.get_cell(selectedIndex).cell_type == "code")
-                    || actionName == 'confirm-restart-kernel-and-run-all-cells' ){
-                    events.on('kernel_idle.Kernel', trackActionAfterExecution);
-                    oldCall.apply(this, arguments);
-                }
-                // if not executing a code cell just track the action immediately
-                else{
-                    oldCall.apply(this, arguments);
-                    trackAction(nb, t, actionName, selectedIndex, selectedIndices);
-                }
+            checkCometSettings();
+            var tracking = Notebook.metadata.comet_tracking;
+            if(!tracking){
+                oldCall.apply(this, arguments);                        
             }
             else{
-                oldCall.apply(this, arguments);
-            }
+                var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
+                if(actionName == 'restart-kernel-and-run-all-cells'){
+                }
+
+                var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
+                if(trackThisAction){
+                    // get time, action name, and selected cell(s) before applying action
+                    var nb = this.env.notebook
+                    var t = Date.now();
+                    var selectedIndex = nb.get_selected_index();
+                    var selectedIndices = nb.get_selected_cells_indices();
+
+                    // if executing a Code cell, or running all cells
+                    // wait for the execution to finish before tracking the action
+                    // since we want to see the changes
+                    // notebook v. 5.0.0 added the `finished_execute.CodeCell` event
+                    // that we may want to listen for instead of the kernel idleing
+                    function trackActionAfterExecution(evt){
+                        trackAction(nb, t, actionName, selectedIndex, selectedIndices);
+                        events.off('kernel_idle.Kernel', trackActionAfterExecution)
+                    }
+
+                    if((actionName.substring(0,3) == "run"
+                        && nb.get_cell(selectedIndex).cell_type == "code")
+                        || actionName == 'confirm-restart-kernel-and-run-all-cells' ){
+                        events.on('kernel_idle.Kernel', trackActionAfterExecution);
+                        oldCall.apply(this, arguments);
+                    }
+                    // if not executing a code cell just track the action immediately
+                    else{
+                        oldCall.apply(this, arguments);
+                        trackAction(nb, t, actionName, selectedIndex, selectedIndices);
+                    }
+                }
+                else{
+                    oldCall.apply(this, arguments);
+                }                
+            }            
         }
     };
 
@@ -291,15 +329,15 @@ define([
     }
 
     function load_extension(){
-        console.log('[Comet] tracking actions');
+        console.log('[Comet] tracking changes to notebook');
         trackNotebookOpenClose();
         patchActionHandlerCall();
         patchCutCopyPaste();
-        patchCellUnselect();
+        // patchCellUnselect();
 
-        // code for adding a settings menu to the toolbar
-        // code to implement tracking setting not implemented yet
-        // renderCometMenu();
+        renderCometMenu();
+        checkCometSettings();
+        setCometMessage();
     }
 
     return {
