@@ -125,16 +125,28 @@ define([
             );
 
         var comet_header = $("#comet_header")
+        
         comet_header.append($('<ul>')
             .addClass('dropdown-menu')
             .attr('id', 'comet-menu')
-            .append($('<li>')
-                .attr('id', 'comet_settings')
-                .append($('<a>')
-                    .attr('href','#')
-                    .text('Toggle Recording')
-                    .click(toggleCometSettings)
-                )
+        );
+            
+        var comet_menu = $("#comet-menu");
+        
+        comet_menu.append($('<li>')
+            .attr('id', 'comet_settings')
+            .append($('<a>')
+                .attr('href','#')
+                .text('Toggle Recording')
+                .click(toggleCometSettings)
+            )
+        );
+        
+        comet_menu.append($('<li>')
+            .attr('id', 'comet_settings')
+            .append($('<a>')
+                .attr('href','/api/comet/' + Notebook.notebook_name.split(".")[0])
+                .text('See Comet Data')
             )
         );
     }
@@ -312,20 +324,49 @@ define([
         }
     };
 
+    // TODO find way to track unselection 
+    // current issue is that cells are regularly unselected, even for things like
+    // move events, which leads to a lot of false positives.
     function patchCellUnselect(){
+        
+        oldSelect = Notebook.__proto__.select;
+        
+        Notebook.__proto__.select = function(){
+            var t = Date.now();
+            var selectedIndex = this.get_selected_index();
+            var selectedIndices = this.get_selected_cells_indices();
+            trackAction(this, t, 'unselect-cell', selectedIndex, selectedIndices);
+            
+            oldSelect.apply(this, arguments);
+        }
+        
         /* Track when cells are unselected so we can track if users change
            cell contents without re-executing the cell */
+           
+    //    oldCellOnClick = Cell.Cell.prototype._on_click
+    //    
+    //    Cell.Cell.prototype._on_click = function (){
+    //        console.log(Notebook.get_selected_index())
+    //        oldCellOnClick.apply(this);
+    //    }
+         
+           
+    //    events.on('select.Cell', function(evt){
+    //        console.log(evt);
+    //    });
 
-        oldCellUnselect = Cell.Cell.prototype.unselect;
-        Cell.Cell.prototype.unselect = function() {
-            if(this.selected){  // only track unselection of selected cells
-                var t = Date.now();
-                var selectedIndex = this.notebook.get_selected_index();
-                var selectedIndices = this.notebook.get_selected_cells_indices();
-                trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
-            }
-            oldCellUnselect.apply(this);
-        }
+        // oldCellUnselect = Cell.Cell.prototype.unselect;
+        // Cell.Cell.prototype.unselect = function() {
+        //     if(this.selected){  // only track unselection of selected cells                
+        //         // if(Jupyter.notebook.mode == "edit"){
+        //         var t = Date.now();
+        //         var selectedIndex = this.notebook.get_selected_index();
+        //         var selectedIndices = this.notebook.get_selected_cells_indices();
+        //         trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
+        //         // }
+        //     }
+        //     oldCellUnselect.apply(this);
+        // }
     }
 
     function load_extension(){
@@ -333,7 +374,7 @@ define([
         trackNotebookOpenClose();
         patchActionHandlerCall();
         patchCutCopyPaste();
-        // patchCellUnselect();
+        patchCellUnselect();
 
         renderCometMenu();
         checkCometSettings();
