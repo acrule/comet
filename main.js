@@ -1,5 +1,5 @@
 /*
-Comet:  NBextension paired with server extension to track notebook use
+Comet:  Notebook extension paired with server extension to track notebook use
 */
 
 define([
@@ -7,19 +7,16 @@ define([
     'base/js/namespace',
     'base/js/utils',
     'base/js/events',
-    'notebook/js/cell',
-    'notebook/js/clipboard'
+    'notebook/js/actions'
 ],function(
     $,
     Jupyter,
     utils,
     events,
-    Cell,
-    clipboard
+    actions
 ){
 
-    // Get references to object constructors so we can patch functions
-    var ActionHandler = Jupyter.actions;
+    // Get references to object constructors so we can patch their functions
     var Notebook = Jupyter.notebook;
 
     // Notebook actions we will track. For all available actions see:
@@ -273,9 +270,9 @@ define([
     function patchActionHandlerCall(){
         /* Inject code into the actionhandler to track desired actions */
 
-        var oldCall = ActionHandler.__proto__.call;
+        var oldCall = actions.init.prototype.call;
         
-        ActionHandler.__proto__.call = function (){            
+        actions.init.prototype.call = function (){            
 
             checkCometSettings();
             var tracking = Notebook.metadata.comet_tracking;
@@ -339,34 +336,6 @@ define([
             
             oldSelect.apply(this, arguments);
         }
-        
-        /* Track when cells are unselected so we can track if users change
-           cell contents without re-executing the cell */
-           
-    //    oldCellOnClick = Cell.Cell.prototype._on_click
-    //    
-    //    Cell.Cell.prototype._on_click = function (){
-    //        console.log(Notebook.get_selected_index())
-    //        oldCellOnClick.apply(this);
-    //    }
-         
-           
-    //    events.on('select.Cell', function(evt){
-    //        console.log(evt);
-    //    });
-
-        // oldCellUnselect = Cell.Cell.prototype.unselect;
-        // Cell.Cell.prototype.unselect = function() {
-        //     if(this.selected){  // only track unselection of selected cells                
-        //         // if(Jupyter.notebook.mode == "edit"){
-        //         var t = Date.now();
-        //         var selectedIndex = this.notebook.get_selected_index();
-        //         var selectedIndices = this.notebook.get_selected_cells_indices();
-        //         trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
-        //         // }
-        //     }
-        //     oldCellUnselect.apply(this);
-        // }
     }
 
     function load_extension(){
