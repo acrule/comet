@@ -6,18 +6,17 @@ define([
     'jquery',
     'base/js/namespace',
     'base/js/utils',
-    'base/js/events',
-    'notebook/js/actions'
+    'base/js/events'
 ],function(
     $,
     Jupyter,
     utils,
-    events,
-    actions
+    events
 ){
 
     // Get references to object constructors so we can patch their functions
     var Notebook = Jupyter.notebook;
+    var ActionHandler = Jupyter.actions;
 
     // Notebook actions we will track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
@@ -66,24 +65,81 @@ define([
         // 'paste-cell-replace',
     ];
 
-    function checkCometSettings(){
+    // TODO track server / kernal shutdown is already shut down
+    function trackNotebookOpenClose(){
+        /* track notebook open and close events */
+        
+        trackAction(Notebook, Date.now(), "notebook-opened", 0, [0]);
+        window.onbeforeunload = function(event) {
+            trackAction(Notebook, Date.now(), "notebook-closed", 0, [0]);
+        }
+    }
+
+    function renderCometMenu(){
+        /* add menu after help menu for managing Comet recording */
+
+        var mainMenu = $("#help_menu").parent().parent();
+        mainMenu.append($('<li>')
+            .addClass("dropdown")
+            .attr('id','comet-header')
+            .append($('<a>')
+                .addClass('dropdown-toggle')
+                .attr('href','#')
+                .attr('data-toggle','dropdown')
+                .text('Comet')                
+                )
+            );
+
+        var cometHeader = $("#comet-header")
+        cometHeader.append($('<ul>')
+            .addClass('dropdown-menu')
+            .attr('id', 'comet-menu')
+        );
+            
+        var cometMenu = $("#comet-menu");        
+        cometMenu.append($('<li>')
+            .attr('id', 'comet_settings')
+            .append($('<a>')
+                .attr('href', '#')
+                .text('Toggle Recording')
+                .click(toggleCometRecording)
+            )
+        );
+        
+        cometMenu.append($('<li>')
+            .attr('id', 'comet_settings')
+            .append($('<a>')
+                .attr('href', '/api/comet/' + Notebook.notebook_path)
+                //.attr('href', '/api/comet/' + Notebook.notebook_name.split(".")[0])
+                .text('See Comet Data')
+            )
+        );
+    }
+    
+    function verifyCometSettings(){
+        /* ensure that the notebook has a comet_tracking setting */
+        
         if (Notebook.metadata.comet_tracking === undefined){
             Notebook.metadata.comet_tracking = true;
         }
     }
-    
-    function toggleCometSettings(){
-        Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;
-        setCometMessage()
+
+    function toggleCometRecording(){
+        /* turn recording on and off */
+        
+        Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;        
         if(Notebook.metadata.comet_tracking){
             trackAction(Notebook, Date.now(), "comet-tracking-on", 0, [0]);
         }
         else{
             trackAction(Notebook, Date.now(), "comet-tracking-off", 0, [0]);
         }        
+        setCometMessage()
     }
-    
+
     function setCometMessage(){
+        /* Set message and update menu-items when tracking turned on/off */
+        
         message = ''
         if(Notebook.metadata.comet_tracking){
             message = "Comet Tracking on"
@@ -95,57 +151,6 @@ define([
             $("#comet_settings").find('a').text('Start Tracking')
         }
         Jupyter.notification_area.widget('notebook').set_message(message, 2000)
-    }
-
-    // TODO fix close events not being tracked if server is already shut down
-    function trackNotebookOpenClose(){
-        /* track notebook open and close events */
-        trackAction(Notebook, Date.now(), "notebook-opened", 0, [0]);
-        window.onbeforeunload = function(event) {
-            trackAction(Notebook, Date.now(), "notebook-closed", 0, [0]);
-        }
-    }
-
-    function renderCometMenu(){
-        /* add menu after help menu for managing Comet recording */
-
-        var menu = $("#help_menu").parent().parent();
-        menu.append($('<li> ')
-            .addClass("dropdown")
-            .attr('id','comet_header')
-            .append($('<a>')
-                .addClass('dropdown-toggle')
-                .attr('href','#')
-                .attr('data-toggle','dropdown')
-                .text('Comet')                
-                )
-            );
-
-        var comet_header = $("#comet_header")
-        
-        comet_header.append($('<ul>')
-            .addClass('dropdown-menu')
-            .attr('id', 'comet-menu')
-        );
-            
-        var comet_menu = $("#comet-menu");
-        
-        comet_menu.append($('<li>')
-            .attr('id', 'comet_settings')
-            .append($('<a>')
-                .attr('href','#')
-                .text('Toggle Recording')
-                .click(toggleCometSettings)
-            )
-        );
-        
-        comet_menu.append($('<li>')
-            .attr('id', 'comet_settings')
-            .append($('<a>')
-                .attr('href','/api/comet/' + Notebook.notebook_name.split(".")[0])
-                .text('See Comet Data')
-            )
-        );
     }
 
     function trackAction(nb, t, actionName, selectedIndex, selectedIndices){
@@ -270,20 +275,17 @@ define([
     function patchActionHandlerCall(){
         /* Inject code into the actionhandler to track desired actions */
 
-        var oldCall = actions.init.prototype.call;
+        var oldCall = ActionHandler.__proto__.call;
         
-        actions.init.prototype.call = function (){            
+        ActionHandler.__proto__.call = function (){            
 
-            checkCometSettings();
+            verifyCometSettings();
             var tracking = Notebook.metadata.comet_tracking;
             if(!tracking){
                 oldCall.apply(this, arguments);                        
             }
             else{
                 var actionName = arguments[0].split(":")[1]; // remove 'jupter-notebook:' prefix
-                if(actionName == 'restart-kernel-and-run-all-cells'){
-                }
-
                 var trackThisAction = actions_to_intercept.indexOf(actionName)>-1;
                 if(trackThisAction){
                     // get time, action name, and selected cell(s) before applying action
@@ -321,10 +323,8 @@ define([
         }
     };
 
-    // TODO find way to track unselection 
-    // current issue is that cells are regularly unselected, even for things like
-    // move events, which leads to a lot of false positives.
     function patchCellUnselect(){
+        /* Track when cells are edited but not executed */
         
         oldSelect = Notebook.__proto__.select;
         
@@ -343,10 +343,10 @@ define([
         trackNotebookOpenClose();
         patchActionHandlerCall();
         patchCutCopyPaste();
-        patchCellUnselect();
+        // patchCellUnselect();
 
         renderCometMenu();
-        checkCometSettings();
+        verifyCometSettings();
         setCometMessage();
     }
 
