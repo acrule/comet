@@ -6,17 +6,23 @@ define([
     'jquery',
     'base/js/namespace',
     'base/js/utils',
-    'base/js/events'
+    'base/js/events',
+    'notebook/js/cell',
+    // 'nbextensions/comet/'
 ],function(
     $,
     Jupyter,
     utils,
-    events
+    events,
+    cell
 ){
 
     // Get references to object constructors so we can patch their functions
     var Notebook = Jupyter.notebook;
     var ActionHandler = Jupyter.actions;
+    
+    // Track cells that have been edited but not executed
+    var unexecutedEdits = [];
 
     // Notebook actions we will track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
@@ -64,6 +70,32 @@ define([
         // 'paste-cell-below',
         // 'paste-cell-replace',
     ];
+
+    // TODO this is happening before the cell gets created and selected
+    
+    function patchInsertCell(){
+        oldInsertCell = Notebook.__proto__.insert_cell_at_index
+        Notebook.__proto__.insert_cell_at_index = function(){
+            c = oldInsertCell.apply(this, arguments)
+            trackCellChanges(c);            
+        }
+    }
+
+    function trackCellChanges(c){
+        c.code_mirror.on("change", function(){
+            var s = Notebook.get_selected_index()
+            if(unexecutedEdits.indexOf(s) == -1){
+                unexecutedEdits.push(s);
+            }
+        });
+    }
+
+    function initializeTrackCellChanges(cell){
+        cells = Notebook.get_cells();
+        for(i = 0; i < cells.length; i++){
+            trackCellChanges(cells[i]);            
+        }
+    }
 
     // TODO track server / kernal shutdown is already shut down
     function trackNotebookOpenClose(){
@@ -304,6 +336,17 @@ define([
                         events.off('kernel_idle.Kernel', trackActionAfterExecution)
                     }
 
+                    if(actionName.substring(0,3) == "run"){
+                        console.log(unexecutedEdits);
+                        for(i = 0; i < selectedIndices.length; i++){
+                            var index = unexecutedEdits.indexOf(i)
+                            if(index > -1){
+                                unexecutedEdits.splice(index, 1);
+                                console.log(unexecutedEdits);                
+                            }
+                        }
+                    }
+
                     if((actionName.substring(0,3) == "run"
                         && nb.get_cell(selectedIndex).cell_type == "code")
                         || actionName == 'confirm-restart-kernel-and-run-all-cells' ){
@@ -326,24 +369,42 @@ define([
     function patchCellUnselect(){
         /* Track when cells are edited but not executed */
         
-        oldSelect = Notebook.__proto__.select;
-        
-        Notebook.__proto__.select = function(){
-            var t = Date.now();
-            var selectedIndex = this.get_selected_index();
-            var selectedIndices = this.get_selected_cells_indices();
-            trackAction(this, t, 'unselect-cell', selectedIndex, selectedIndices);
-            
-            oldSelect.apply(this, arguments);
+        oldCellUnselect = cell.Cell.prototype.unselect;    
+        cell.Cell.prototype.unselect = function() {
+                        
+            var selectedIndex = Notebook.get_selected_index();
+            var unexecutedIndex = unexecutedEdits.indexOf(selectedIndex);
+            if(this.selected && unexecutedIndex > -1){
+                console.log(unexecutedEdits);
+                var t = Date.now();                
+                var selectedIndices = this.notebook.get_selected_cells_indices();
+                trackAction(this.notebook, t, 'unselect-cell', selectedIndex, selectedIndices);
+                unexecutedEdits.splice(unexecutedIndex, 1);                
+                console.log(unexecutedEdits);
+            }            
+            oldCellUnselect.apply(this);
         }
     }
+        // oldSelect = Notebook.__proto__.select;
+        // 
+        // Notebook.__proto__.select = function(){
+        //     if(this.selected && )
+        //     var t = Date.now();
+        //     var selectedIndex = this.get_selected_index();
+        //     var selectedIndices = this.get_selected_cells_indices();
+        //     trackAction(this, t, 'unselect-cell', selectedIndex, selectedIndices);
+        //     
+        //     oldSelect.apply(this, arguments);
+        // }
 
     function load_extension(){
         console.log('[Comet] tracking changes to notebook');
         trackNotebookOpenClose();
+        initializeTrackCellChanges();
+        patchInsertCell();
         patchActionHandlerCall();
         patchCutCopyPaste();
-        // patchCellUnselect();
+        patchCellUnselect();
 
         renderCometMenu();
         verifyCometSettings();
