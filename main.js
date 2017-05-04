@@ -7,7 +7,7 @@ define([
     'base/js/namespace',
     'base/js/utils',
     'base/js/events',
-    'notebook/js/cell',
+    'notebook/js/cell'
     // 'nbextensions/comet/'
 ],function(
     $,
@@ -186,7 +186,7 @@ define([
     }
 
     function trackAction(nb, t, actionName, selectedIndex, selectedIndices){
-        /* Send data about the action to the Comet server extension */
+        /* Send data about the action to the Comet server extension */        
 
         var mod = nb.toJSON();
         var notebookUrl =  nb.notebook_path;
@@ -200,6 +200,8 @@ define([
             indices: selectedIndices,
             model: mod
         });
+        
+        console.log(d.length)
 
         var settings = {
             processData : false,
@@ -209,7 +211,7 @@ define([
             contentType: 'application/json',
         };
 
-        var response = utils.promising_ajax(url, settings);
+        var response = utils.promising_ajax(url, settings);    
     }
 
     function patchCutCopyPaste(){
