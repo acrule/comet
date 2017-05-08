@@ -95,11 +95,11 @@ define([
     function patchInsertCellAtIndex(){
         console.log("Patching cell insertion")
         /* Get newly created cells to track unexecuted changes */
-        // oldInsertCellAtIndex = Notebook.__proto__.insert_cell_at_index;
-        // Notebook.__proto__.insert_cell_at_index = function(){
-        //     oldInsertCellAtIndex.apply(this, arguments);
-        //     c = oldInsertCellAtIndex.apply(this, arguments);
-        //     trackChangesToCell(c);            
+        var oldInsertCellAtIndex = Notebook.__proto__.insert_cell_at_index;
+        Notebook.__proto__.insert_cell_at_index = function(){
+            c = oldInsertCellAtIndex.apply(this, arguments);
+            trackChangesToCell(c);   
+            return c;         
         }
     }
     
