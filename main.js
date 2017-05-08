@@ -16,12 +16,12 @@ define([
     cell
 ){
 
+// VARIABLES
     // Reference object constructors so we can patch their functions
     var Notebook = Jupyter.notebook;
     var ActionHandler = Jupyter.actions;
-    // var Cell = cell.Cell;
 
-    // Actions we will track. For all available actions see:
+    // Actions to track. For all available actions see:
     // https://github.com/jupyter/notebook/blob/master/notebook/static/notebook/js/actions.js
     var actions_to_intercept = [
         // execute cells
@@ -72,7 +72,7 @@ define([
     var cellsWithUnexecutedEdits = [];
     
     
-    // TRACK NOTEBOOK OPEN AND CLOSE 
+// TRACK NOTEBOOK OPEN AND CLOSE 
     function trackNotebookOpenClose(){
         /* track notebook open and close events */        
         trackAction(Notebook, Date.now(), 'notebook-opened', 0, [0]);
@@ -81,40 +81,14 @@ define([
         }
     }
     
-    
-    // TRACK CHANGES TO UNEXECUTED CELLS
-    function trackUnexecutedCellChanges(){
-        /* Get currently rendered cells to track unexecuted changes */
-        cells = Notebook.get_cells();
-        for(var i = 0; i < cells.length; i++){
-            trackChangesToCell(cells[i]);            
-        }
-        patchInsertCellAtIndex();        
+        
+// GENERATE COMET MENU
+    function initializeCometMenu(){
+        renderCometMenu();
+        verifyCometSettings();
+        displayCometRecordingStatus();
     }
     
-    function patchInsertCellAtIndex(){
-        console.log("Patching cell insertion")
-        /* Get newly created cells to track unexecuted changes */
-        var oldInsertCellAtIndex = Notebook.__proto__.insert_cell_at_index;
-        Notebook.__proto__.insert_cell_at_index = function(){
-            c = oldInsertCellAtIndex.apply(this, arguments);
-            trackChangesToCell(c);   
-            return c;         
-        }
-    }
-    
-    function trackChangesToCell(c){
-        /* Track unexecuted changes for a particular cell */
-        c.code_mirror.on('change', function(){
-            var i = Notebook.get_selected_index();
-            if(cellsWithUnexecutedEdits.indexOf(i) == -1){
-                cellsWithUnexecutedEdits.push(i);
-            }
-        });
-    }
-    
-    
-    // GENERATE COMET MENU
     function renderCometMenu(){
         /* add menu after help menu for managing Comet recording */
         var mainMenu = $('#help_menu').parent().parent();
@@ -151,7 +125,7 @@ define([
                 .attr('href', '/api/comet/' + Notebook.notebook_path)
                 .text('See Comet Data')
             )
-        );
+        );        
     }
     
     function verifyCometSettings(){
@@ -174,7 +148,7 @@ define([
     }
     
     function displayCometRecordingStatus(){
-        /* Set message and update menu-items when tracking turned on/off */
+        /* Set message and update menu-items when tracking turned on / off */
         var message = 'Comet Tracking off';
         var menuText = 'Start Tracking';
         if(Notebook.metadata.comet_tracking){
@@ -186,7 +160,7 @@ define([
     }
     
     
-    // SEND ACTION DATA TO SERVER
+// SEND ACTION DATA TO SERVER
     function trackAction(notebook, t, actionName, selectedIndex, 
                         selectedIndices){
         /* Send information about data to Comet Server to process */        
@@ -218,10 +192,9 @@ define([
     }
     
     
-    // TRACK COPY PASTE
+// TRACK COPY PASTE
     function patchCutCopyPaste(){
         /* Track when cells are cut, copied, and pasted */
-    
         // TODO the 'cut_cell' function calls the copy function, so for now cut 
         // actions will be tracked twice, and data need to be cleaned later
         var oldCut = Notebook.__proto__.cut_cell;
@@ -289,7 +262,8 @@ define([
                 var t = Date.now();
                 var selectedIndex = Notebook.get_selected_index();
                 var selectedIndices = Notebook.get_selected_cells_indices();
-                trackAction(Notebook, t, 'cut-cell', selectedIndex, selectedIndices);
+                trackAction(Notebook, t, 'cut-cell', selectedIndex, 
+                            selectedIndices);
             }
         });
     
@@ -298,7 +272,8 @@ define([
                 var t = Date.now();
                 var selectedIndex = Notebook.get_selected_index();
                 var selectedIndices = Notebook.get_selected_cells_indices();
-                trackAction(Notebook, t, 'copy-cell', selectedIndex, selectedIndices);
+                trackAction(Notebook, t, 'copy-cell', selectedIndex, 
+                            selectedIndices);
             }
         });
     
@@ -307,17 +282,20 @@ define([
                 var t = Date.now();
                 var selectedIndex = Notebook.get_selected_index();
                 var selectedIndices = Notebook.get_selected_cells_indices();
-                trackAction(Notebook, t, 'paste-cell-below', selectedIndex, selectedIndices);
+                trackAction(Notebook, t, 'paste-cell-below', selectedIndex, 
+                            selectedIndices);
             }
         });
     
     }
 
+// TRACK ACTIONS
     function patchActionHandlerCall(){
         /* Track desired actions */
         var oldCall = ActionHandler.__proto__.call;
-        ActionHandler.__proto__.call = function(){        
-            var actionName = arguments[0].split(':')[1]; // remove 'jupter-notebook:' prefix
+        ActionHandler.__proto__.call = function(){       
+            // remove 'jupter-notebook:' prefix 
+            var actionName = arguments[0].split(':')[1]; 
             var actionInList = actions_to_intercept.indexOf(actionName) > -1;
             if(!actionInList){
                 oldCall.apply(this, arguments);
@@ -365,6 +343,17 @@ define([
         }
     }
 
+// TRACK CHANGES TO UNEXECUTED CELLS        
+    function trackUnexecutedCellChanges(){
+        /* Get currently rendered cells to track unexecuted changes */
+        patchCellUnselect();
+        var cells = Notebook.get_cells();
+        for(var i = 0; i < cells.length; i++){
+            trackChangesToCell(cells[i]);            
+        }
+        patchInsertCellAtIndex();        
+    }
+    
     function patchCellUnselect(){
         /* Track when cells are edited but not executed */ 
         oldCellUnselect = cell.Cell.prototype.unselect;    
@@ -381,18 +370,37 @@ define([
             oldCellUnselect.apply(this);
         }
     }
+    
+    function patchInsertCellAtIndex(){
+        /* Get newly created cells to track unexecuted changes */
+        var oldInsertCellAtIndex = Notebook.__proto__.insert_cell_at_index;
+        Notebook.__proto__.insert_cell_at_index = function(){
+            c = oldInsertCellAtIndex.apply(this, arguments);
+            trackChangesToCell(c);   
+            return c;         
+        }
+    }
+    
+    function trackChangesToCell(c){
+        /* Track unexecuted changes for a particular cell */
+        c.code_mirror.on('change', function(){
+            var i = Notebook.get_selected_index();
+            if(cellsWithUnexecutedEdits.indexOf(i) == -1){
+                cellsWithUnexecutedEdits.push(i);
+            }
+        });
+    }
 
+
+// LOAD EXTENSION
     function load_extension(){
         /* Called as extension loads and notebook opens */
         console.log('[Comet] tracking changes to notebook');
-        trackNotebookOpenClose();        
+        trackNotebookOpenClose();  
+        initializeCometMenu();     
         patchActionHandlerCall();
         patchCutCopyPaste();
-        patchCellUnselect();
-        trackUnexecutedCellChanges();
-        renderCometMenu();
-        verifyCometSettings();
-        displayCometRecordingStatus();
+        trackUnexecutedCellChanges();        
     }
 
     return {
