@@ -16,13 +16,13 @@ Comet tracks this information in three ways:
 Comet is a research tool designed to help scientists in human-computer interaction better understand how people use Jupyter Notebooks. It is primarily a recording tool with limited support for visualizing or reviewing the recorded data.
 
 ## Installation
-Comet expects all data to be saved to an external drive (e.g. a USB key) and will not run unless it detects a mounted drive with a config file named `traces.cfg`.
-
 The Comet notebook extension may be installed by downloading this repo, opening a terminal, navigating to the folder containing the downloaded repo, and then installing and enabling the extension using the following commands:
 
 ```
 jupyter nbextension install comet
 jupyter nbextension enable comet/main
 ```
+
+By default, Comet with store its data in the `.jupyter` folder under your home directory; for example `Users/username/.jupyter` for mac users. We suggest you can change this parameter by editing the `notebook.json` configuration file in the `.jupyter/nbconfig` folder to include a line specifying your data directory. For example: `"Comet": {"data_directory": "/full/path/" }`.
 
 See the [Comet Server repo](https://github.com/activityhistory/comet_server) for instructions on how to install the server extension.
