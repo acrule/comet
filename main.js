@@ -137,12 +137,13 @@ define([
     
     function toggleCometRecording(){
         /* turn recording on and off */        
-        Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;        
         if(Notebook.metadata.comet_tracking){
-            trackAction(Notebook, Date.now(), 'comet-tracking-on', 0, [0]);
+            trackAction(Notebook, Date.now(), 'comet-tracking-off', 0, [0]);
+            Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;                    
         }
         else{
-            trackAction(Notebook, Date.now(), 'comet-tracking-off', 0, [0]);
+            Notebook.metadata.comet_tracking = !Notebook.metadata.comet_tracking;        
+            trackAction(Notebook, Date.now(), 'comet-tracking-on', 0, [0]);
         }        
         displayCometRecordingStatus();
     }
