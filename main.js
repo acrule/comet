@@ -309,9 +309,10 @@ define([
                 // Remove executed cells from list of cells with unexecuted changes
                 if(actionName.substring(0,3) == 'run'){
                     for(i = 0; i < selectedIndices.length; i++){
-                        var j = cellsWithUnexecutedEdits.indexOf(i)
-                        if(j > -1){
-                            cellsWithUnexecutedEdits.splice(j, 1);               
+                        var j = cellsWithUnexecutedEdits.indexOf(
+                            selectedIndices[i])                        
+                        if(j > -1){                            
+                            cellsWithUnexecutedEdits.splice(j, 1);
                         }
                     }
                 }  
